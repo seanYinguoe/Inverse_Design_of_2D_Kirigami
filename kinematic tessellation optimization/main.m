@@ -11,6 +11,10 @@ tessellation_transformed = tessellation_deployment(m,n,length,Rotate_angels);
 s = 1; % s = 1,circle; s = 2,ellispe; s = 3, vase; s = 4, wavy; s = 5, heart
 r = 3.2*sqrt(2.0/2.2); % the radius of circle; ellipse: r = 3.2*sqrt(2.0/2.2);
 p = 1; % p = 1, rigid; p = 2, nonrigid;
+t = 0.05; % cut gap
+% export the initial tessellation to an svg file (cuts shortened by t so the
+% hinge points stay connected by a small ligament)
+create_svg_tessellation(tessellation_intial, t, 'tessellation_initial.svg');
 % optimize the kirigami tessellation
 tessellation_optimized = tessellation_optimization(tessellation_transformed,s,r,p);
 % compact the kirigami tessellation
