@@ -1,9 +1,11 @@
-function outfile = create_svg_tessellation(tessellation, t, filename)
+function outfile = create_svg_tessellation(tessellation, t, filename, w, fillet_r)
 % CREATE_SVG_TESSELLATION  Export a kirigami squares tessellation to an SVG file.
 %
 %   create_svg_tessellation(tessellation)
 %   create_svg_tessellation(tessellation, t)
 %   outfile = create_svg_tessellation(tessellation, t, filename)
+%   outfile = create_svg_tessellation(tessellation, t, filename, w)
+%   outfile = create_svg_tessellation(tessellation, t, filename, w, fillet_r)
 %
 %   The analytical kinematic model treats every cut as a zero-gap slit, so
 %   neighbouring rigid squares meet exactly at the hinge points.  In a real
@@ -29,6 +31,19 @@ function outfile = create_svg_tessellation(tessellation, t, filename)
 %                    e.g. tessellation_deployment(m,n,length,0).
 %     t            : cut gap / ligament length (default 0.05, as in main.m).
 %     filename     : output file name (default 'tessellation.svg').
+%     w            : cut width (default 0). Each undeployed cut segment is
+%                    treated as the centreline of a rectangular void of
+%                    this width; w = 0 reproduces the original
+%                    zero-thickness line. Collinear cut segments that meet
+%                    end-to-end (no real ligament gap) are merged into a
+%                    single continuous cut before drawing.
+%     fillet_r     : corner fillet radius applied to the open (free) ends
+%                    of each cut void (default w/4), automatically clamped
+%                    so it never exceeds half of the rectangle's width or
+%                    length. Any cut end that meets the sheet's outer
+%                    boundary is left square (no fillet), since it
+%                    terminates flush against the material edge rather
+%                    than opening into free space.
 %
 %   OUTPUT
 %     outfile      : full path of the written svg.
@@ -41,6 +56,12 @@ if nargin < 2 || isempty(t)
 end
 if nargin < 3 || isempty(filename)
     filename = 'tessellation.svg';
+end
+if nargin < 4 || isempty(w)
+    w = 0;
+end
+if nargin < 5 || isempty(fillet_r)
+    fillet_r = w/4;
 end
 
 [m, n] = size(tessellation);
@@ -123,6 +144,12 @@ for e = 1:numel(keys)
     end
 end
 
+% neighbouring quadrant squares each contribute their own (already
+% hinge-shortened) piece of what is physically one continuous slit; where
+% two such pieces are collinear and meet with no real ligament gap, merge
+% them into a single segment.
+cuts = merge_collinear_cuts(cuts, tolc);
+
 % --- model -> svg pixel mapping -----------------------------------------
 xmin = min(allpts(:,1)); xmax = max(allpts(:,1));
 ymin = min(allpts(:,2)); ymax = max(allpts(:,2));
@@ -164,15 +191,44 @@ for e = 1:numel(boundary)
 end
 fprintf(fid, '  </g>\n');
 
-% cuts (zero-thickness lines, shortened by t at the hinge end -> ligament)
-fprintf(fid, '  <g stroke="#000000" stroke-width="1" stroke-linecap="round">\n');
-for e = 1:numel(cuts)
-    p1 = map(cuts{e}(1:2));
-    p2 = map(cuts{e}(3:4));
-    fprintf(fid, '    <line x1="%.3f" y1="%.3f" x2="%.3f" y2="%.3f"/>\n', ...
-            p1(1), p1(2), p2(1), p2(2));
+% cuts (shortened by t at the hinge end -> ligament), drawn either as
+% zero-thickness lines (w == 0) or as void outlines of width w centred on
+% the original cut segment (w > 0), filleted only at free ends - an end
+% that lands on the sheet's outer boundary is left square.
+if w <= 0
+    fprintf(fid, '  <g stroke="#000000" stroke-width="1" stroke-linecap="round">\n');
+    for e = 1:numel(cuts)
+        p1 = map(cuts{e}(1:2));
+        p2 = map(cuts{e}(3:4));
+        fprintf(fid, '    <line x1="%.3f" y1="%.3f" x2="%.3f" y2="%.3f"/>\n', ...
+                p1(1), p1(2), p2(1), p2(2));
+    end
+    fprintf(fid, '  </g>\n');
+else
+    wpx = w*scale;                          % cut width in pixels
+    fpx = fillet_r*scale;                   % fillet radius in pixels
+    fprintf(fid, '  <g fill="none" stroke="#000000" stroke-width="1">\n');
+    for e = 1:numel(cuts)
+        A = cuts{e}(1:2);  B = cuts{e}(3:4);
+        p1  = map(A);
+        p2  = map(B);
+        mid = (p1 + p2)/2;
+        Lpx = norm(p2 - p1);
+        ang = atan2d(p2(2) - p1(2), p2(1) - p1(1));
+
+        onBoundaryA = abs(A(1)-xmin)<tolc || abs(A(1)-xmax)<tolc || ...
+                      abs(A(2)-ymin)<tolc || abs(A(2)-ymax)<tolc;
+        onBoundaryB = abs(B(1)-xmin)<tolc || abs(B(1)-xmax)<tolc || ...
+                      abs(B(2)-ymin)<tolc || abs(B(2)-ymax)<tolc;
+        r0 = 0; if ~onBoundaryA, r0 = min([fpx, Lpx/2, wpx/2]); end
+        r1 = 0; if ~onBoundaryB, r1 = min([fpx, Lpx/2, wpx/2]); end
+
+        d = rounded_rect_path(Lpx/2, wpx/2, r0, r1);
+        fprintf(fid, '    <path d="%s" transform="translate(%.3f %.3f) rotate(%.3f)"/>\n', ...
+                d, mid(1), mid(2), ang);
+    end
+    fprintf(fid, '  </g>\n');
 end
-fprintf(fid, '  </g>\n');
 
 fprintf(fid, '</svg>\n');
 fclose(fid);
@@ -187,4 +243,96 @@ a = round(a/tol)*tol;
 b = round(b/tol)*tol;
 p = sortrows([a; b]);
 k = sprintf('%.6f_%.6f__%.6f_%.6f', p(1,1), p(1,2), p(2,1), p(2,2));
+end
+
+% -------------------------------------------------------------------------
+function out = merge_collinear_cuts(cuts, tol)
+% merge axis-aligned cut segments that are collinear and touch end-to-end
+% (gap < tol) into a single longer segment. Segments separated by a real
+% ligament gap (on the order of t, always >> tol) are left untouched.
+horizKeys = {}; horizIv = {};
+vertKeys  = {}; vertIv  = {};
+out = {};
+for i = 1:numel(cuts)
+    seg = cuts{i};
+    A = seg(1:2); B = seg(3:4);
+    if abs(A(2) - B(2)) < tol
+        y = A(2);
+        key = sprintf('%.6f', round(y/tol)*tol);
+        pos = find(strcmp(horizKeys, key), 1);
+        iv = sort([A(1) B(1)]);
+        if isempty(pos)
+            horizKeys{end+1} = key; horizIv{end+1} = iv;  %#ok<AGROW>
+        else
+            horizIv{pos} = [horizIv{pos}; iv];             %#ok<AGROW>
+        end
+    elseif abs(A(1) - B(1)) < tol
+        x = A(1);
+        key = sprintf('%.6f', round(x/tol)*tol);
+        pos = find(strcmp(vertKeys, key), 1);
+        iv = sort([A(2) B(2)]);
+        if isempty(pos)
+            vertKeys{end+1} = key; vertIv{end+1} = iv;     %#ok<AGROW>
+        else
+            vertIv{pos} = [vertIv{pos}; iv];                %#ok<AGROW>
+        end
+    else
+        out{end+1} = seg;                                  %#ok<AGROW>
+    end
+end
+for k = 1:numel(horizKeys)
+    y = str2double(horizKeys{k});
+    merged = merge_intervals(horizIv{k}, tol);
+    for r = 1:size(merged,1)
+        out{end+1} = [merged(r,1) y merged(r,2) y];        %#ok<AGROW>
+    end
+end
+for k = 1:numel(vertKeys)
+    x = str2double(vertKeys{k});
+    merged = merge_intervals(vertIv{k}, tol);
+    for r = 1:size(merged,1)
+        out{end+1} = [x merged(r,1) x merged(r,2)];        %#ok<AGROW>
+    end
+end
+end
+
+% -------------------------------------------------------------------------
+function merged = merge_intervals(iv, tol)
+% collapse a set of [lo hi] intervals into their union, joining any pair
+% whose gap is smaller than tol
+iv = sortrows(iv, 1);
+merged = iv(1,:);
+for i = 2:size(iv,1)
+    if iv(i,1) <= merged(end,2) + tol
+        merged(end,2) = max(merged(end,2), iv(i,2));
+    else
+        merged(end+1,:) = iv(i,:);                          %#ok<AGROW>
+    end
+end
+end
+
+% -------------------------------------------------------------------------
+function d = rounded_rect_path(hl, hw, r0, r1)
+% path for a hl*2-by-hw*2 rectangle centred on the origin, with its long
+% axis along x. r0 fillets the two corners at x = -hl (the A end), r1
+% fillets the two corners at x = +hl (the B end); either may be 0 for a
+% square end.
+d = sprintf('M %.3f,%.3f ', -hl+r0, -hw);
+d = [d, sprintf('L %.3f,%.3f ', hl-r1, -hw)];
+if r1 > 0
+    d = [d, sprintf('A %.3f,%.3f 0 0 1 %.3f,%.3f ', r1, r1, hl, -hw+r1)];
+end
+d = [d, sprintf('L %.3f,%.3f ', hl, hw-r1)];
+if r1 > 0
+    d = [d, sprintf('A %.3f,%.3f 0 0 1 %.3f,%.3f ', r1, r1, hl-r1, hw)];
+end
+d = [d, sprintf('L %.3f,%.3f ', -hl+r0, hw)];
+if r0 > 0
+    d = [d, sprintf('A %.3f,%.3f 0 0 1 %.3f,%.3f ', r0, r0, -hl, hw-r0)];
+end
+d = [d, sprintf('L %.3f,%.3f ', -hl, -hw+r0)];
+if r0 > 0
+    d = [d, sprintf('A %.3f,%.3f 0 0 1 %.3f,%.3f ', r0, r0, -hl+r0, -hw)];
+end
+d = [d, 'Z'];
 end
