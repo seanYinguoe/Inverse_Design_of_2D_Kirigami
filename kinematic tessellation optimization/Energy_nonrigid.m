@@ -1,7 +1,24 @@
-% Program for calculate the bending energy of non-rigid kirigami tessellation analytically
-% input: compacted kirigami tessellation
-%        deployed kirigami tessellation
-% output: bending energy
+% ENERGY_NONRIGID  Analytical bending energy of a non-rigid kirigami tessellation.
+%
+%   SCRIPT (not a function) - run it after main.m has produced
+%   tessellation_compacted and tessellation_optimized in the base workspace.
+%
+%   Implements the rotating-spring model of Section 2.2 of the paper: all the
+%   deformation is assumed to localise in the thin ligaments, each of which
+%   behaves as a rotational spring, so the total elastic energy is
+%
+%       U = sum over hinges of  E*t*d^3*xi^2 / (24*w)          [Eqs. 11, 14]
+%
+%   where xi is the opening angle of that hinge, i.e. the change in corner
+%   angle between the compacted and the deployed state.
+%
+%   INPUT  (read from the base workspace)
+%     tessellation_compacted : compact state,  m-by-n cell of 16-by-2 nodes
+%     tessellation_optimized : deployed state, same layout
+%   OUTPUT (printed)
+%     total bending angle [rad] and total bending energy [J]
+%
+%   Node numbering: see create_unit.m.
 
 % Read the input
 cs = tessellation_compacted; % get the nodes of compacted state
@@ -59,6 +76,11 @@ for i = 1:m-1
             nodec2 = cs{i+1,j}(index(l,2),:);
             nodec3 = cs{i,j}(index(l,3),:);
             angle_c = [nodec1;nodec2;nodec3];
+% NOTE  the deployed triple below is read entirely from unit (i+1,j) while
+% the compacted triple mixes units (i+1,j) and (i,j). This looks like a
+% copy-paste slip - the third deployed node is probably meant to come from
+% ds{i,j} so that it matches nodec3 - but it is left as-is because changing
+% it would change the published energy values. Verify before reusing.
             noded1 = ds{i+1,j}(index(l,1),:);
             noded2 = ds{i+1,j}(index(l,2),:);
             noded3 = ds{i+1,j}(index(l,3),:);

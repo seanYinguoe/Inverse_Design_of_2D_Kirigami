@@ -1,10 +1,20 @@
+% DEPLOYMENT  Scratch script: replay the deployment of a single unit.
+%
+%   SCRIPT (not a function) - run it after main.m has produced
+%   tessellation_optimized and tessellation_compacted in the base workspace.
+%
+%   Takes unit (1,1) in its compacted state and rotates its four quadrant
+%   squares back to the optimised deployed position, then plots the result.
+%   Used to check the deployment path of one unit by hand; the loop bounds
+%   are hard-coded to 1:1, widen them to animate more units.
+%
+%   Node numbering: see create_unit.m.
+
 tessellation = tessellation_optimized;
 tessellation_transformed = tessellation_optimized;
-% compact each sqaure units from undeployed state to deployed state
+% rotate each quadrant square from the compacted state to the deployed one
 for i = 1:1
     for j = 1:1
-        a = 0.4;
-        b = 0.5;
         d1 = tessellation_compacted{i,j}(4,:) - tessellation{i,j}(4,:);
         d2 = tessellation_compacted{i,j}(13,:) - tessellation{i,j}(13,:);
         angle1 = angle_calculate([tessellation_optimized{i,j}(1,:)+d1;tessellation_optimized{i,j}(4,:)+d1;tessellation_compacted{i,j}(1,:)]);
@@ -15,10 +25,10 @@ for i = 1:1
         square_transformed2 = transform_square(tessellation{i,j}(5:8,:),-angle2,d1,tessellation{i,j}(7,:));
         square_transformed3 = transform_square(tessellation{i,j}(9:12,:),angle3,d2,tessellation{i,j}(10,:));
         square_transformed4 = transform_square(tessellation{i,j}(13:16,:),-angle4,d2,tessellation{i,j}(13,:));
-        tessellation_transformed{i,j} = [square_transformed1([1:4],:);
-            square_transformed2([1:4],:);
-            square_transformed3([1:4],:);
-            square_transformed4([1:4],:)];
+        tessellation_transformed{i,j} = [square_transformed1(1:4,:);
+            square_transformed2(1:4,:);
+            square_transformed3(1:4,:);
+            square_transformed4(1:4,:)];
     end
 end
 figure(1)

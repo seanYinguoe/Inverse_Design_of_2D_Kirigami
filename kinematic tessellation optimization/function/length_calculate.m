@@ -1,10 +1,16 @@
-function length = length_calculate(nodes)
-% node1, node2are 2x1 matrices representing the (x,y) coordinates of each node
+function edge_length = length_calculate(nodes)
+%LENGTH_CALCULATE  Distance between two nodes.
+%
+%   edge_length = length_calculate(nodes)
+%
+%   INPUT
+%     nodes : 2-by-2, the (x,y) coordinates of two nodes [n1; n2]
+%
+%   OUTPUT
+%     edge_length : Euclidean distance |n2 - n1|
+%
+%   Building block of the edge conditions Eqs. (4) and (9) of the paper
+%   (corresponding edges must have equal length).
 
-% Calculate the vectors formed by the nodes
-vector = nodes(2,:) - nodes(1,:);
-
-% Calculate the magnitudes of the vectors
-length = norm(vector);
-
+edge_length = norm(nodes(2,:) - nodes(1,:));
 end
