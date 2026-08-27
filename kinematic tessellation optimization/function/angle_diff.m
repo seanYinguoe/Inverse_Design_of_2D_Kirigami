@@ -16,6 +16,13 @@ function angle_diff = angle_diff(nodes,m,n)
 %
 %   OUTPUT
 %     angle_diff : scalar, sum of squared angle differences (rad^2)
+%
+%   COVERAGE  Every adjacent pair of units is counted exactly once. An
+%   earlier version looped i = 1:m-1, j = 1:n-1 and then patched in a single
+%   extra term for unit (m,n), which left most of the last row and last
+%   column out of the objective entirely - those units were free to distort
+%   without penalty, and they are exactly the units carrying the boundary
+%   condition. The pattern below has no such gap.
 
 tessellation = nodes_to_units(nodes,m,n);
 angle_total = 0;
@@ -25,28 +32,21 @@ angle_total = 0;
 index = [1 2 3;2 3 4;3 4 1;4 1 2;5 6 7;6 7 8;7 8 5;8 5 6;9 10 11;10 11 12;
     11 12 9;12 9 10;13 14 15;14 15 16;15 16 13;16 13 14];
 
-% compare every unit with the one above and the one to its right
-for i = 1:m-1
-    for j = 1:n-1
+for i = 1:m
+    for j = 1:n
         for corner = 1:16
             nodes1 = tessellation{i,j}([index(corner,:)],:);
-            nodes2 = tessellation{i+1,j}([index(corner,:)],:);
-            nodes3 = tessellation{i,j+1}([index(corner,:)],:);
-            d_angle_up    = (angle_calculate(nodes1) - angle_calculate(nodes2))^2;
-            d_angle_right = (angle_calculate(nodes1) - angle_calculate(nodes3))^2;
-            angle_total = angle_total + d_angle_up + d_angle_right;
+            a1 = angle_calculate(nodes1);
+            if i < m    % compare with the unit above
+                a2 = angle_calculate(tessellation{i+1,j}([index(corner,:)],:));
+                angle_total = angle_total + (a1 - a2)^2;
+            end
+            if j < n    % compare with the unit to the right
+                a3 = angle_calculate(tessellation{i,j+1}([index(corner,:)],:));
+                angle_total = angle_total + (a1 - a3)^2;
+            end
         end
     end
-end
-% the loop above skips the last row and column; close the sum at the far
-% corner unit (m,n) by comparing it with its lower and left neighbours
-for corner = 1:16
-    nodes1 = tessellation{m,n}([index(corner,:)],:);
-    nodes2 = tessellation{m-1,n}([index(corner,:)],:);
-    nodes3 = tessellation{m,n-1}([index(corner,:)],:);
-    d_angle_down = (angle_calculate(nodes1) - angle_calculate(nodes2))^2;
-    d_angle_left = (angle_calculate(nodes1) - angle_calculate(nodes3))^2;
-    angle_total = angle_total + d_angle_down + d_angle_left;
 end
 angle_diff = angle_total;
 end

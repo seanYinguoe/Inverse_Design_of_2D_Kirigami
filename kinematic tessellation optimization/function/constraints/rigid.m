@@ -1,4 +1,4 @@
-function [c,ceq] = rigid(nodes,s,m,n,r)
+function [c,ceq] = rigid(nodes,s,m,n,r,opts)
 %RIGID  Nonlinear constraints for a RIGID-deployable kirigami tessellation.
 %
 %   [c,ceq] = rigid(nodes,s,m,n,r)
@@ -34,6 +34,25 @@ function [c,ceq] = rigid(nodes,s,m,n,r)
 %     6. boundary condition   - boundary nodes must lie on the target shape
 %                               [Eq. 7], interior nodes must stay inside it
 %
+%
+%   OPTIONS (optional 6th argument, struct; omit for the paper's behaviour)
+%     MinEdgeLength : lower bound on every quadrant-square edge. The
+%                     non-overlap conditions only ask that corners keep their
+%                     orientation, which still allows a panel to shrink to
+%                     nothing - and it does: on a 4x4 circle the largest and
+%                     smallest panels ended up differing by a factor of 400.
+%                     A positive value here adds one inequality per edge and
+%                     keeps the panels a sensible size. 0 disables it.
+%     Symmetry      : when true, add the left-right and top-bottom mirror
+%                     conditions. Default FALSE - see the long note at block 3;
+%                     switching them on over-constrains the problem and can
+%                     make the target boundary unreachable.
+%     FreeScale     : when true, the compacted sheet is no longer pinned to
+%                     exactly n-by-m. The two absolute-size equalities are
+%                     replaced by a single aspect-ratio equality, so the
+%                     overall scale becomes a free parameter the optimiser
+%                     can use to fit the target boundary. Use together with
+%                     fit_initial_guess, which chooses the starting size.
 %   Node numbering: see create_unit.m. Every "index" array below is a list of
 %   node triples (for angles) or pairs (for edges) in that numbering.
 
@@ -41,6 +60,13 @@ function [c,ceq] = rigid(nodes,s,m,n,r)
 c = []; % nonlinear inequality matrix condition
 ceq = []; % nonlinear equality matrix condition
 tessellation = nodes_to_units(nodes,m,n);
+
+% ---- options -------------------------------------------------------------
+if nargin < 6 || isempty(opts); opts = struct(); end
+if ~isfield(opts,'MinEdgeLength'); opts.MinEdgeLength = 0;     end
+if ~isfield(opts,'FreeScale');     opts.FreeScale     = false; end
+if ~isfield(opts,'Symmetry');      opts.Symmetry      = false; end
+
 %% 1. Angle constraints
 % Contractibility of the angles inside one unit: the four angles meeting at
 % the centre of the unit must add up to 2*pi so that the unit closes
@@ -197,31 +223,49 @@ for i = 1:m-1
     k = k+1;
 end
 
-%% 3. Symmetry conditions
-% The target shapes are symmetric about both axes, so the design is forced to
-% be symmetric too. This is not a physical requirement: it removes about
-% three quarters of the independent parameters and makes fmincon converge
-% much faster. Mirroring about x reverses the node order within a unit
-% (node l <-> node 17-l), which is why the x coordinates are added (they
-% cancel) while the y coordinates are subtracted (they must match).
-for i = 1:m/2  % left and right symmetry
-    for j = 1:(n/2)
-        for l = 1:16
-            ceq(k) = tessellation{i,j}(l,1) + tessellation{i,n-j+1}(17-l,1);
-            ceq(k+1) = tessellation{i,j}(l,2) - tessellation{i,n-j+1}(17-l,2);
-            k = k+2;
+%% 3. Symmetry conditions (OPTIONAL - off by default, and for good reason)
+% These force the design to be its own mirror image about both axes. They are
+% NOT a physical requirement; the paper introduces them only to cut the number
+% of independent parameters and speed the solve up.
+%
+% In practice they over-constrain the problem. Counting the rank of the
+% equality Jacobian for a 4x4 circle (see design_freedom.m):
+%
+%            block                     rows   rank added   freedom left
+%     ...    edge conditions            ...       ...          115
+%            symmetry left-right        128        56           27
+%            symmetry top-bottom         64        19            8
+%            square conditions           32         8            0
+%            BOUNDARY TARGET CURVE       32         0            0   <-- !!
+%
+% More than half the symmetry rows are redundant with each other, but the
+% independent ones still eat the design freedom the boundary condition needs.
+% By the time the target-shape equations are added there is nothing left to
+% move, so they contribute no rank at all and simply cannot be satisfied.
+% That is why the rigid solve used to stall with max|ceq| ~ 1e-1 and produce
+% collapsed panels: the system was infeasible, not merely slow.
+%
+% If you do want a symmetric design, the sound way is to optimise a quarter of
+% the sheet and mirror it - reducing the VARIABLES rather than adding
+% equations - which is what the paper does for the FEA stage.
+if opts.Symmetry
+    for i = 1:m/2  % left and right symmetry
+        for j = 1:(n/2)
+            for l = 1:16
+                ceq(k) = tessellation{i,j}(l,1) + tessellation{i,n-j+1}(17-l,1);
+                ceq(k+1) = tessellation{i,j}(l,2) - tessellation{i,n-j+1}(17-l,2);
+                k = k+2;
+            end
         end
     end
-end
-% mirroring about y maps the quadrant squares onto each other as
-% Q1<->Q2 and Q3<->Q4, i.e. the node pairs listed here
-index = [1 6;2 5;3 8;4 7;9 14;10 13;11 16;12 15];
-for i = 1:m/2  % top and bottom symmetry
-    for j = 1:(n/2)
-        for l = 1:size(index,1)
-            ceq(k) = tessellation{i,j}(index(l,1),1) - tessellation{m-i+1,j}(index(l,2),1);
-            ceq(k+1) = tessellation{i,j}(index(l,1),2) + tessellation{m-i+1,j}(index(l,2),2);
-            k = k+2;
+    index = [1 6;2 5;3 8;4 7;9 14;10 13;11 16;12 15];
+    for i = 1:m/2  % top and bottom symmetry
+        for j = 1:(n/2)
+            for l = 1:size(index,1)
+                ceq(k) = tessellation{i,j}(index(l,1),1) - tessellation{m-i+1,j}(index(l,2),1);
+                ceq(k+1) = tessellation{i,j}(index(l,1),2) + tessellation{m-i+1,j}(index(l,2),2);
+                k = k+2;
+            end
         end
     end
 end
@@ -259,10 +303,20 @@ for i = 1:m
     d_total4 = d_total4 + d;
 end
 ceq(k) = d_total3 - d_total4;
-ceq(k+1) = d_total1 - n;
-ceq(k+2) = d_total3 - m;
-%ceq(k+1) = d_total1/d_total3 - n/m;
-k = k+3;
+if opts.FreeScale
+    % Overall size is a free parameter: pin only the aspect ratio, so the
+    % optimiser may scale the whole sheet to reach the target boundary.
+    % Dropping the two absolute-size rows entirely (rather than setting them
+    % to a constant 0) matters - a constant equality contributes an all-zero
+    % row to the constraint Jacobian and degrades the KKT conditioning.
+    ceq(k+1) = d_total1/n - d_total3/m;
+    k = k+2;
+else
+    % Compacted sheet pinned to exactly n-by-m, as in the paper.
+    ceq(k+1) = d_total1 - n;
+    ceq(k+2) = d_total3 - m;
+    k = k+3;
+end
 % angle of edge
 for j = 1:n
     a = angle_calculate(tessellation{1,j}([9,12,11],:)) + angle_calculate(tessellation{1,j}([6,5,8],:));
@@ -379,138 +433,34 @@ for i = 1:m
     end
 end
 %% 6. Boundary condition
-% The nodes on the outer edge of the sheet must land on the target curve
-% [Eq. 7], evaluated through shape.m, while every other node must stay inside
-% it. The boundary nodes are, per unit:
-%   left  edge -> nodes 14 and 9    right edge -> nodes 3 and 8
-%   bottom edge -> nodes 12 and 5   top   edge -> nodes 15 and 2
-% For shapes 2-4 the left and right edges are clamped straight at x = -+2.5
-% (the loading grips) and only the top and bottom follow the target curve.
-if s == 1  % circle boundary
-    % inside the boundary shape
+% Delegated to boundary_residual so that the constraint files and
+% fit_initial_guess.m cannot drift apart. See that function for the list of
+% boundary nodes and the per-shape treatment.
+[cb, ceqb] = boundary_residual(tessellation, s, r, m, n, 'rigid');
+if ~isempty(cb)
+    c(num:num+numel(cb)-1) = cb;
+    num = num + numel(cb);
+end
+if ~isempty(ceqb)
+    ceq(k:k+numel(ceqb)-1) = ceqb;
+    k = k + numel(ceqb);
+end
+
+%% 7. Minimum edge length (optional)
+% The non-overlap conditions above only fix the SENSE of each corner, which
+% still permits a panel to shrink towards zero area - and it does in practice.
+% This block puts a floor under every quadrant-square edge.
+if opts.MinEdgeLength > 0
+    index5 = [1 2;2 3;3 4;4 1;5 6;6 7;7 8;8 5;9 10;10 11;11 12;12 9; ...
+              13 14;14 15;15 16;16 13];
     for i = 1:m
         for j = 1:n
             for l = 1:16
-                c(num) = length_calculate([tessellation{i,j}(l,:);[0,0]]) - r;
-                %c(num+1) = abs(tessellation{i,j}(l,1)) - 2.5;
+                c(num) = opts.MinEdgeLength - ...
+                    length_calculate(tessellation{i,j}(index5(l,:),:));
                 num = num + 1;
             end
         end
     end
-    % left and right boundary nodes
-    for i = 1:m
-        ceq(k) = shape(s,[tessellation{i,1}(14,:)],r);
-        ceq(k+1) = shape(s,[tessellation{i,1}(9,:)],r);
-        ceq(k+2) = shape(s,[tessellation{i,n}(3,:)],r);
-        ceq(k+3) = shape(s,[tessellation{i,n}(8,:)],r);
-        k = k+4;
-    end
-    % left and right boundary shape
-    for j = 1:n
-        ceq(k) = shape(s,[tessellation{1,j}(12,:)],r);
-        ceq(k+1) = shape(s,[tessellation{1,j}(5,:)],r);
-        ceq(k+2) = shape(s,[tessellation{m,j}(15,:)],r);
-        ceq(k+3) = shape(s,[tessellation{m,j}(2,:)],r);
-        k = k+4;
-    end
-
-elseif s == 2  % ellipse boundary
-    % inside the target shape
-    for i = 1:m
-        for j = 1:n
-            for l = 1:16
-                c(num) = tessellation{i,j}(l,1)^2/r^2 + tessellation{i,j}(l,2)^2/(1/4*r^2) - 1;
-                c(num+1) = abs(tessellation{i,j}(l,1)) - 2.5;
-                num = num + 2;
-            end
-        end
-    end
-    % left and right boundary nodes
-    for i = 1:m
-        ceq(k) = tessellation{i,1}(14,1) + 2.5;
-        ceq(k+1) = tessellation{i,1}(9,1) + 2.5;
-        ceq(k+2) = tessellation{i,n}(3,1) - 2.5;
-        ceq(k+3) = tessellation{i,n}(8,1) - 2.5;
-        k = k+4;
-    end
-    % boundary condition for top and bottom condition
-    for j = 1:n
-        ceq(k) = shape(s,[tessellation{1,j}(12,:)],r);
-        ceq(k+1) = shape(s,[tessellation{1,j}(5,:)],r);
-        ceq(k+2) = shape(s,[tessellation{m,j}(15,:)],r);
-        ceq(k+3) = shape(s,[tessellation{m,j}(2,:)],r);
-        k = k+4;
-    end
-
-elseif s == 3 % vase boundary
-    % left and right boundary nodes
-    for i = 1:m
-        ceq(k) = tessellation{i,1}(14,1) + 2.5;
-        ceq(k+1) = tessellation{i,1}(9,1) + 2.5;
-        ceq(k+2) = tessellation{i,n}(3,1) - 2.5;
-        ceq(k+3) = tessellation{i,n}(8,1) - 2.5;
-        k = k+4;
-    end
-    % boundary condition for top and bottom condition
-%     for j = 1:n
-%         ceq(k) = -sqrt(1/3*r^2-1/3*tessellation{m,j}(15,1)^2) + r - tessellation{m,j}(15,2);
-%         ceq(k+1) = -sqrt(1/3*r^2-1/3*tessellation{m,j}(2,1)^2) + r - tessellation{m,j}(2,2);
-%         ceq(k+2) = sqrt(1/3*r^2-1/3*tessellation{1,j}(12,1)^2) - r - tessellation{1,j}(12,2);
-%         ceq(k+3) = sqrt(1/3*r^2-1/3*tessellation{1,j}(5,1)^2) - r - tessellation{1,j}(5,2);
-%         k = k+4;
-%     end
-    for j = 1:n
-        ceq(k) = shape(s,[tessellation{1,j}(12,:)],-r);
-        ceq(k+1) = shape(s,[tessellation{1,j}(5,:)],-r);
-        ceq(k+2) = shape(s,[tessellation{m,j}(15,:)],r);
-        ceq(k+3) = shape(s,[tessellation{m,j}(2,:)],r);
-        k = k+4;
-    end
-
-elseif s == 4 % wavy boundary
-    % inside the target shape
-%     for j = 1:n
-%         for l = 1:16
-%             c(num) = -(tessellation{1,j}(l,2) + 0.3*cos(pi*tessellation{1,j}(l,1)) + 1.3);
-%             c(num+1) = tessellation{m,j}(l,2) - 0.3*cos(pi*tessellation{m,j}(l,1)) - 1.3;
-%             num = num + 2;
-%         end
-%     end
-    % top and bottom boundary conditions
-    for j = 1:n
-        ceq(k) = tessellation{1,j}(12,2) + 0.45*cos(0.8*pi*(tessellation{1,j}(12,1)-(pi/(0.8*pi)))) + 1.5;
-        ceq(k+1) = tessellation{1,j}(5,2) + 0.45*cos(0.8*pi*(tessellation{1,j}(5,1)-(pi/(0.8*pi)))) + 1.5;
-        ceq(k+2) = tessellation{m,j}(15,2) - 0.45*cos(0.8*pi*(tessellation{m,j}(15,1)-(pi/(0.8*pi)))) - 1.5;
-        ceq(k+3) = tessellation{m,j}(2,2) - 0.45*cos(0.8*pi*(tessellation{m,j}(2,1)-(pi/(0.8*pi)))) - 1.5;
-        k = k + 4;
-    end
-    % left and right boundary shape for wave
-    for i = 1:m
-        ceq(k) = tessellation{i,1}(14,1) + 2.5;
-        ceq(k+1) = tessellation{i,1}(9,1) + 2.5;
-        ceq(k+2) = tessellation{i,n}(3,1) - 2.5;
-        ceq(k+3) = tessellation{i,n}(8,1) - 2.5;
-        k = k+4;
-    end
-elseif s == 5  % heart shape
-    % left and right boundary nodes
-    for i = 1:m
-        ceq(k) = shape(s,[tessellation{i,1}(14,:)],r);
-        ceq(k+1) = shape(s,[tessellation{i,1}(9,:)],r);
-        ceq(k+2) = shape(s,[tessellation{i,n}(3,:)],r);
-        ceq(k+3) = shape(s,[tessellation{i,n}(8,:)],r);
-        k = k+4;
-    end
-    % left and right boundary shape
-    for j = 1:n
-        ceq(k) = shape(s,[tessellation{1,j}(12,:)],r);
-        ceq(k+1) = shape(s,[tessellation{1,j}(5,:)],r);
-        ceq(k+2) = shape(s,[tessellation{m,j}(15,:)],r);
-        ceq(k+3) = shape(s,[tessellation{m,j}(2,:)],r);
-        k = k+4;
-    end
 end
 end
-
-
-

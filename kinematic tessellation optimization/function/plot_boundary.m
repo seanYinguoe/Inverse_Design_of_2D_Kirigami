@@ -9,8 +9,9 @@ function [] = plot_boundary(s,r)
 %   its target.
 %
 %   INPUTS
-%     s : target shape selector, same codes as shape.m
-%           1 circle | 2 ellipse | 3 vase | 4 wavy | 5 heart
+%     s : target shape. Either a built-in code (1 circle | 2 ellipse |
+%         3 vase | 4 wavy | 5 heart) or a target struct from make_target,
+%         in which case any implicit curve or point list is drawn.
 %     r : characteristic size of the shape (radius / semi-axis)
 %
 %   The clamped edges of the sheet are at x = +-2.5, i.e. half the width of
@@ -23,6 +24,28 @@ function [] = plot_boundary(s,r)
 
 target_color = [0.6350 0.0780 0.1840];   % dark red
 half_width   = 2.5;                       % x position of the clamped edges
+
+% --- general target from make_target -------------------------------------
+if isstruct(s)
+    hold on
+    switch s.type
+        case 'curve'
+            P = [s.pts; s.pts(1,:)];
+            plot(P(:,1), P(:,2), 'color', target_color, 'linewidth', 1.5);
+        case 'implicit'
+            h = fimplicit(@(x,y) s.fun(x,y), 'color', target_color, 'linewidth', 1.5);
+            % keep the drawn range near the data rather than fimplicit's default
+            ax = axis; h.XRange = ax(1:2); h.YRange = ax(3:4);
+        case 'builtin'
+            plot_boundary(s.code, s.r);
+    end
+    if ~isempty(s.clampx)
+        yl = ylim;
+        plot([-s.clampx -s.clampx], yl, 'color', target_color, 'linewidth', 1.5);
+        plot([ s.clampx  s.clampx], yl, 'color', target_color, 'linewidth', 1.5);
+    end
+    return
+end
 
 theta_full  = 0:0.01:2*pi;                                  % full circle
 theta_upper = acos(half_width/r):0.001:acos(-half_width/r); % top arc, x: +2.5 -> -2.5
