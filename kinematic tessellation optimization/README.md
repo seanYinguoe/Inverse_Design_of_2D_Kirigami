@@ -353,7 +353,65 @@ which is the polygon approximation, not an error.
 
 ---
 
-## 8. Performance — what actually helps
+## 8. Run time — the setting that matters
+
+**A 4×4 circle solves in ~17 s (non-rigid) or ~55 s (rigid).** If yours takes
+minutes, it is almost certainly running past the point of usefulness.
+
+`fmincon` terminates on its **step** tolerance, not on feasibility. On a 4×4
+circle the geometry is solved early and everything after that is polishing the
+objective — making panels more uniform:
+
+| reach \|ceq\| < | iteration | time |
+|---|---|---|
+| 1e-04 | 25 | 13 s |
+| 1e-06 | 33 | 16 s |
+| 1e-07 | 265 | 140 s |
+| stops | 360 | 195 s |
+
+`EarlyStop` (default **true**) leaves as soon as the design is *feasible* and
+the objective has flattened (<1% over 15 iterations):
+
+| mode | EarlyStop | time | iters | max \|ceq\| | objective | panel ratio |
+|---|---|---|---|---|---|---|
+| non-rigid | **on** | **17 s** | 33 | 7.2e-07 | 1.0498 | 5.0 |
+| non-rigid | off | 197 s | 360 | 5.5e-10 | 0.8163 | 4.6 |
+| rigid | on | 162 s | 298 | 2.4e-06 | 0.9768 | 4.9 |
+| rigid | off | 166 s | 298 | 2.4e-06 | 0.9768 | 4.9 |
+
+So non-rigid gets **11× faster** for panels ~9% less uniform.
+
+### Rigid needs a reachable target
+
+Rigid never gets below 1e-6 — its best is 2.4e-06 — so the `EarlyStop`
+feasibility gate never opens at the default and it runs to completion. That is
+correct behaviour (it will not stop at a point it has not verified), but it
+means rigid needs `FeasibilityTolerance` set to something it can hit:
+
+| FeasibilityTolerance | time | max \|ceq\| | objective |
+|---|---|---|---|
+| 1e-03 | 10 s | 6.6e-04 | 1.2155 (visibly irregular) |
+| **1e-04** | **55 s** | 1.4e-05 | **0.9780** |
+| 1e-05 | 66 s | 9.8e-06 | 0.9773 |
+| 1e-06 | 165 s | 2.4e-06 | 0.9768 |
+
+```matlab
+opts.FeasibilityTolerance = 1e-4;   % rigid, under a minute
+```
+
+At 1e-4 the objective is within 0.1% of the 165-second answer and the geometry
+is visually identical. In model units the sheet is ~4 across, so 1e-4 is about
+2.5 µm on a 100 mm sheet — roughly 40× finer than a laser kerf.
+
+### A fixed iteration cap is not a substitute
+
+Interior-point feasibility is not monotone. Capping at 100 iterations gave
+`|ceq| = 2.6e-05` — *worse* than capping at 60 (1.2e-07). `EarlyStop` only ever
+stops at a point it has checked.
+
+---
+
+## 9. Performance — what actually helps
 
 A converged 4×4 solve takes **10–20 minutes**. The old 9-second runs were not
 fast, they stopped after about fifteen iterations and returned a point that
@@ -430,7 +488,7 @@ loosen `FeasibilityTolerance` from 1e-7, or start from a better
 
 ---
 
-## 9. File reference
+## 10. File reference
 
 ### Top level
 
@@ -480,7 +538,7 @@ Not on the active path: `tessellation_con_notuse.m`, `main.asv`, `test.mlx`,
 
 ---
 
-## 10. Remaining issues
+## 11. Remaining issues
 
 * **`shape.m` and `plot_boundary.m` duplicate the curve parameters.** The
   boundary *constraints* now come from `boundary_residual.m`, but

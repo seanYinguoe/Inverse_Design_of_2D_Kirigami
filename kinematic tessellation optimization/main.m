@@ -37,7 +37,7 @@ n_cols      = 4;       % number of tessellation units along x
 target_shape = 1;      % 1 circle | 2 ellipse | 3 vase | 4 wavy | 5 heart (see shape.m)
 shape_size   = 3.2*sqrt(2.0/2.2);   % characteristic size r of the target shape
                                     % (circle radius; ellipse semi-axis a)
-deployability = 2;     % 1 rigid-deployable | 2 non-rigid deployable
+deployability = 1;     % 1 rigid-deployable | 2 non-rigid deployable
 if deployability == 1; mode = 'rigid'; else; mode = 'nonrigid'; end
 
 %% Initial guess
@@ -78,6 +78,15 @@ cut_width       = 0.50 * ligament_length;   % width w of the cut void
 %% Kinematic optimisation
 opts = struct();
 opts.FreeScale = FIT_UNIT_LENGTH;   % let the optimiser keep tuning the size
+
+% Stop once the design is FEASIBLE and the objective has flattened, instead of
+% grinding on to fmincon's step tolerance. On a 4x4 circle this is 17 s rather
+% than 197 s, for panels about 9% less uniform. Set false for the last few
+% percent of uniformity.
+opts.EarlyStop = true;
+% opts.FeasibilityTolerance = 1e-6;  % what "feasible" means. Rigid mode may
+%                                    % need 1e-4 - it does not reach 1e-6, so
+%                                    % EarlyStop never triggers at the default.
 % opts.MaxFunctionEvaluations = 400*2*n_rows*n_cols*16;   % default, scales with the grid
 % opts.Restarts      = 3;      % warm restarts if fmincon hits a limit
 % opts.MinEdgeLength = 0.075;  % floor on panel edges; raise if panels collapse
