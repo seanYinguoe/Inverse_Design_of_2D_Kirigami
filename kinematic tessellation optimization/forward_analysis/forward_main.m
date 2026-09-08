@@ -31,7 +31,7 @@
 
 clear;
 clc;
-addpath(genpath(fullfile(fileparts(mfilename('fullpath')), 'function')));
+addpath(genpath(fullfile(fileparts(mfilename('fullpath')), '..', 'function')));
 
 %% ------------------------------------------------------------------ knobs
 unit_type     = 'triangle';   % 'square' | 'triangle'

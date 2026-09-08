@@ -30,7 +30,7 @@
 
 clear;
 clc;
-addpath(genpath(fullfile(fileparts(mfilename('fullpath')), 'function')));
+addpath(genpath(fullfile(fileparts(mfilename('fullpath')), '..', 'function')));
 
 C     = forward_colors();
 cPlus = C(1,:);              % (+) counter-clockwise, blue

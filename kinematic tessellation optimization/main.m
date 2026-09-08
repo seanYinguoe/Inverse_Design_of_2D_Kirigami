@@ -72,8 +72,8 @@ cut_width       = 0.50 * ligament_length;   % width w of the cut void
 %% Export the compact tessellation to an SVG file. Every cut is shortened by
 % ligament_length at its hinge end so the panels stay connected by a small
 % ligament; the cut is drawn as a void of width cut_width with filleted ends.
-% svg_name = sprintf('tessellation_initial_%dX%d.svg', 2*n_cols, 2*n_rows);
-% create_svg_tessellation(tessellation_initial, ligament_length, svg_name, cut_width);
+svg_name = sprintf('tessellation_initial_%dX%d.svg', 2*n_cols, 2*n_rows);
+create_svg_tessellation(tessellation_initial, ligament_length, svg_name, cut_width);
 
 %% Kinematic optimisation
 opts = struct();
