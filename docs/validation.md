@@ -1,34 +1,39 @@
-# Validation record
+# Validation — 8 October 2026
 
-Checked on 8 October 2026 with MATLAB R2025a Update 1 on macOS. These results cover the maintained-code examples, not a rerun of every paper result.
+Checked with MATLAB R2025a Update 1 and COMSOL 6.2, build 290, on macOS.
 
-## Automated checks
+## Kinematic examples
 
-- 3/3 geometry tests passed: panel-edge invariance, the rotating-square expansion law, and node/cell conversion.
-- 14/14 existing forward-analysis tests passed after updating their folder paths.
-- The test suite is asserted to be nonempty, so an empty test discovery cannot count as a pass.
+Both default 2 × 4 symmetric vase examples were run with seed 1 and feasibility tolerance `1e-6`.
 
-## Inverse-design examples
-
-Both runs used a 4 × 4 unit grid, a circular target, the recorded default example options and feasibility tolerance `1e-4`.
-
-| Quantity | Rigid | Non-rigid |
+| Check | Rigid | Non-rigid |
 |---|---:|---:|
-| Maximum nonlinear equality residual | 1.43e-5 | 9.13e-5 |
-| Maximum positive inequality residual | 0 | 3.14e-6 |
-| Maximum linear hinge residual | 2.48e-10 | 5.91e-13 |
-| Solver exit flag | 2 | 2 |
-| Feasible at stated tolerance | Yes | Yes |
-| Approximate elapsed time on this machine | 59 s | 13 s |
+| Maximum nonlinear equality residual | 1.95 × 10⁻⁷ | 1.07 × 10⁻⁸ |
+| Maximum positive inequality residual | 0 | 0 |
+| Maximum linear hinge residual | 2.81 × 10⁻¹⁰ | 2.70 × 10⁻¹² |
+| Mechanical reconstruction error | 4.72 × 10⁻⁷ | 1.62 × 10⁻⁸ |
+| Feasible at the stated tolerance | Yes | Yes |
 
-Runtime is indicative, not a benchmark guarantee. MATLAB reported near-singular linear systems during parts of the optimisation; the final results satisfied the reported feasibility checks. Feasibility does not establish a global optimum or fabrication accuracy.
+The deployed and compact patterns were visually inspected. MATLAB reported near-singular intermediate systems for some runs; acceptance was based on the final residuals. Other targets and initial guesses can fail. For example, the tested ellipse starting point failed the rigid tolerance, and a non-rigid ellipse encountered a nonlinear COMSOL convergence failure. Failures are reported, not treated as successful results.
 
-`demo_deployment` and the rigid example generated the new README illustrations. The figures were visually inspected. Documentation links and the cleaned file tree were checked.
+## COMSOL and GA integration
 
-## Not rerun
+Both default vase patterns completed a short, real COMSOL-backed GA run: **population 2, one generation, perturbation radius 0.002, seed 1, stopping tolerance 0**. Other material, geometry, mesh and loading settings used `mechanical_config` defaults. Each solve ramped both grips to ±0.5 over 50 increments.
 
-- Full MATLAB–COMSOL genetic optimisation and finite-element studies.
-- Every legacy case, parameter sweep or fabrication export.
-- Exact reproduction of all published figures and experiments.
+| Result | Rigid | Non-rigid |
+|---|---:|---:|
+| Final shape-error objective | 0.636708444 | 1.383015540 |
+| Rejected candidates | 0 | 0 |
+| Stopping reason | Generation limit | Generation limit |
 
-These are explicitly separate from the verified quick start.
+These checks exercised model construction, meshing, full-load nonlinear solutions, loaded boundary extraction, fitness evaluation, GA iteration and saved outputs. The final geometry of each mode was separately checked for a single connected domain. Models were released from the server after evaluation; no `.mph` files were saved or included in the repository.
+
+**This verifies the workflow, not convergence to the target shape.** The short runs did not reach the production shape-error tolerance. A full population/generation study, mesh-convergence study and specimen-specific material calibration remain separate research tasks.
+
+## Code checks
+
+- All 12 fast tests passed: geometry invariants, named targets, shared wavy profile, mechanical encoding, rectangular-grid indexing, invalid-input handling, shape-error translation, GA bounds/elitism and zero-fitness handling.
+- MATLAB dependency analysis found no source `.m` files outside the three main entry points' dependency closure.
+- MATLAB syntax checks and Git whitespace checks passed.
+
+The numerical model uses the source COMSOL API workflow; geometry methods were checked against the [COMSOL 6.2 API reference](https://doc.comsol.com/6.2/doc/com.comsol.help.comsol/api/com/comsol/model/GeomSequence.html).

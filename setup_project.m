@@ -1,8 +1,6 @@
 function root = setup_project
-%SETUP_PROJECT Add this paper's functions and examples, without saving paths.
+%SETUP_PROJECT Add only this project's source and configuration folders.
 root = fileparts(mfilename('fullpath'));
-addpath(root);
-addpath(genpath(fullfile(root, 'src', 'kinematics')));
-addpath(fullfile(root, 'examples'));
-if ~isfolder(fullfile(root, 'results')), mkdir(fullfile(root, 'results')); end
+addpath(root,fullfile(root,'config'),genpath(fullfile(root,'src')));
+if ~isfolder(fullfile(root,'results')), mkdir(fullfile(root,'results')); end
 end

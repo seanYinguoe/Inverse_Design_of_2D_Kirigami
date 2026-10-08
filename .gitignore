@@ -1,4 +1,4 @@
-# Reproducible inputs belong in data/; generated runs do not belong in Git.
+# Reusable settings belong in config/; generated runs do not belong in Git.
 /results/*
 !/results/README.md
 **/output/
@@ -20,3 +20,7 @@ __pycache__/
 .codex/
 .vscode/
 matlab_crash_dump*
+
+# COMSOL models are generated locally, never uploaded.
+*.mph
+*.mph.*

@@ -37,7 +37,7 @@ function [tessellation_optimized, info] = tessellation_optimization(tessellation
 %           They are off by default because they over-constrain the problem:
 %           for a 4x4 rigid circle they consume so much of the design freedom
 %           that the target-boundary equations add no rank at all and simply
-%           cannot be met. Run design_freedom to see this for your own case.
+%           cannot be met. Check the returned feasibility residuals for your case.
 %     FreeScale              : default false. Let the compacted sheet size
 %           float, pinning only its aspect ratio, so the optimiser can scale
 %           the design to fit the boundary. Pair with fit_initial_guess.
@@ -395,12 +395,8 @@ if ~strcmp(opts.Display,'off')
     if info.converged
         fprintf('  CONVERGED - the geometric conditions are satisfied.\n');
     else
-        fprintf(['  NOT CONVERGED - the result does NOT satisfy the geometric\n' ...
-                 '  conditions and will not compact into a proper rectangle.\n' ...
-                 '  FIRST run  design_freedom(%d,%d,%d,%g,%d)  - if it reports zero\n' ...
-                 '  freedom the problem is over-constrained and no amount of solver\n' ...
-                 '  effort will help. Otherwise raise MaxFunctionEvaluations or\n' ...
-                 '  Restarts, or start from fit_initial_guess.\n'], m, n, s, r, p);
+        fprintf(['  NOT CONVERGED: inspect residuals, target and initial guess.\n' ...
+                 '  The current design must not be sent to the mechanical stage.\n']);
     end
 end
 end

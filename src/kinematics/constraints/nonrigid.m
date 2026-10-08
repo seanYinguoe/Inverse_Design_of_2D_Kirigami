@@ -150,7 +150,7 @@ end
 % of independent parameters and speed the solve up.
 %
 % In practice they over-constrain the problem. Counting the rank of the
-% equality Jacobian for a 4x4 circle (see design_freedom.m):
+% equality Jacobian for a 4x4 circle (historical diagnostic):
 %
 %            block                     rows   rank added   freedom left
 %     ...    edge conditions            ...       ...          115

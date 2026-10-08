@@ -1,13 +1,13 @@
 # Changes
 
-## Repository cleanup — 8 October 2026
+## Focused two-stage project — October 2026
 
-- Organised source, examples, legacy cases, documentation and generated results separately.
-- Added a visual paper explanation, MATLAB starting commands and citation metadata.
-- Added configuration-saving examples for deployment and both constraint sets.
-- Checked panel rigidity, expansion and node conversion; retained the existing forward-analysis tests.
-- Removed machine-specific output paths and updated paths after moving files.
-- Converted four GA helper files' comments from GB18030 to UTF-8.
-- Preserved numerical equations and the original Git history. See `docs/source-manifest.csv` for provenance.
+- Three entry points: rigid kinematics, non-rigid kinematics, and COMSOL/GA refinement.
+- Removed unused forward studies, duplicate drivers, saved legacy workspaces and the large solver reference.
+- Consolidated named target shapes and fixed built-in target structs; shared the wavy curve between stages.
+- Preserved the kinematic constraint equations and the original mechanical cut constructions.
+- Replaced workspace-dependent GA scripts with a bounded serial driver, explicit settings, checkpoints and visible failure handling.
+- Removed material/loading overrides, corrected the rigid mirror function name and non-rigid grid indexing, and used reference coordinates plus displacement for loaded boundary extraction.
+- Removed unused bending-energy extraction and per-candidate plotting. COMSOL models are rebuilt from MATLAB; `.mph` files are ignored.
 
-The baseline includes maintained solver updates after the 2025 publication. This cleanup is not labelled as the original paper's frozen code release.
+Based on maintained research source commit `a567cb4` and the first cleanup commit `632894c`. Original scripts remain in Git history and in the untouched research folder. This is a maintained version, not a frozen paper reproduction.

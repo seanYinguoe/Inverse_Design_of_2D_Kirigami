@@ -1,3 +1,3 @@
 # Generated runs
 
-Examples write their outputs here. Run folders are ignored by Git. Keep inputs in `data/`, and explicitly select final figures for `docs/figures/`.
+Each main entry point writes to a new run folder here. These generated folders are ignored by Git. Keep reusable settings in `config/`; keep model files and calculation output local.
