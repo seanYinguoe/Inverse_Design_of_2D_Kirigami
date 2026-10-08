@@ -1,0 +1,8 @@
+* text=auto
+*.m text eol=lf
+*.mat binary
+*.mph binary
+*.png binary
+*.gif binary
+*.jpg binary
+*.obj text

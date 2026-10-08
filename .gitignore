@@ -1,0 +1,22 @@
+# Reproducible inputs belong in data/; generated runs do not belong in Git.
+/results/*
+!/results/README.md
+**/output/
+**/output_cut_pattern/
+.DS_Store
+._*
+*.asv
+*.m~
+*.autosave
+*.log
+*.bak
+*.mphbin
+*.mphstatus
+*.mph.lock
+*.slxc
+*.mex*
+__pycache__/
+.claude/
+.codex/
+.vscode/
+matlab_crash_dump*

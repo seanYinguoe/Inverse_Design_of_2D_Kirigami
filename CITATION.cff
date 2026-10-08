@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "Please cite the accompanying paper when using this research method."
+title: "Research code for inverse design of programmable shape-morphing kirigami structures"
+type: software
+authors:
+  - family-names: Ying
+    given-names: Xiaoyuan
+  - family-names: Fernando
+    given-names: Dilum
+  - family-names: Dias
+    given-names: Marcelo A.
+repository-code: "https://github.com/seanYinguoe/Inverse_Design_of_2D_Kirigami"
+preferred-citation:
+  type: article
+  title: "Inverse design of programmable shape-morphing kirigami structures"
+  authors:
+    - family-names: Ying
+      given-names: Xiaoyuan
+    - family-names: Fernando
+      given-names: Dilum
+    - family-names: Dias
+      given-names: Marcelo A.
+  journal: International Journal of Mechanical Sciences
+  volume: "286"
+  start: "109840"
+  year: 2025
+  doi: "10.1016/j.ijmecsci.2024.109840"
