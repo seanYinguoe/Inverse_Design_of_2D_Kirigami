@@ -46,6 +46,15 @@ The COMSOL model is built from code. **No `.mph` files are required or tracked.*
 
 The inherited mechanical parameterisation uses symmetric patterns: rigid refinement supports **2 × 4** units; non-rigid refinement supports even rectangular grids. It currently evaluates ellipse, vase and wavy boundaries. Unsupported or unconverged inputs are rejected explicitly. See the [workflow guide](docs/workflow.md) for setup, units and settings, and the [validation record](docs/validation.md) for tested limits.
 
+## Check the setup
+
+```matlab
+setup_project
+assertSuccess(runtests('tests'))
+```
+
+These fast checks cover geometry, shape definitions, pattern encoding and the genetic-algorithm driver. They do not require COMSOL; a full mechanical run needs a connected, licensed COMSOL server.
+
 ## Where things belong
 
 | Location | Contents |

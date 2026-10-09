@@ -37,3 +37,7 @@ These checks exercised model construction, meshing, full-load nonlinear solution
 - MATLAB syntax checks and Git whitespace checks passed.
 
 The numerical model uses the source COMSOL API workflow; geometry methods were checked against the [COMSOL 6.2 API reference](https://doc.comsol.com/6.2/doc/com.comsol.help.comsol/api/com/comsol/model/GeomSequence.html).
+
+## Public-release check — 9 October 2026
+
+All 12 fast MATLAB tests passed again with the default MATLAB path plus this project. Dependency analysis from the three main entry points reached all 38 retained source functions, with no dependency on the other research directories. Documentation links and the tracked-file list were checked. This release check did not repeat the full COMSOL optimisation or the dense unit-library sweep; the numerical runs and limitations above still apply.
